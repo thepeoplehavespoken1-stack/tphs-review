@@ -1,9 +1,9 @@
-name: Copy a story's parts folder from Drive to a Release
+name: Copy a story's parts from Drive to a Release
 on:
   workflow_dispatch:
     inputs:
-      folder_id: {description: "Drive folder ID", required: true}
       tag: {description: "Release tag, e.g. virginia-parts", required: true}
+      files: {description: "Space-separated pairs id:name", required: true}
 permissions:
   contents: write
 jobs:
@@ -11,14 +11,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: pip install gdown
-      - name: Download folder and attach files (skip FULL and 2x videos)
+      - name: Download each file and attach it
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+          FILES: ${{ inputs.files }}
         run: |
           mkdir parts && cd parts
-          gdown --folder "https://drive.google.com/drive/folders/${{ inputs.folder_id }}" -O . --remaining-ok
-          find . -type f \( -iname '*_FULL.mp4' -o -iname '*_2x.mp4' \) -delete
-          ls -la . */ || true
-          gh release create "${{ inputs.tag }}" -R "$REPO" --title "${{ inputs.tag }}" --notes "Editing parts from Drive" || true
-          find . -type f -print0 | xargs -0 -I{} gh release upload "${{ inputs.tag }}" "{}" -R "$REPO" --clobber
+          gh release create "$TAG" -R "$REPO" --title "$TAG" --notes "Editing parts from Drive" >> ../log.txt 2>&1 || true
+          for pair in $FILES; do
+            id="${pair%%:*}"; name="${pair#*:}"
+            if gdown --quiet "https://drive.google.com/uc?id=$id" -O "$name" >> ../log.txt 2>&1; then
+              gh release upload "$TAG" "$name" -R "$REPO" --clobber >> ../log.txt 2>&1 && echo "OK $name" >> ../log.txt || echo "UPLOAD FAILED $name" >> ../log.txt
+              rm -f "$name"
+            else
+              echo "DOWNLOAD FAILED $name" >> ../log.txt
+            fi
+          done
+      - if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ inputs.tag }}" log.txt -R "${{ github.repository }}" --clobber || true
