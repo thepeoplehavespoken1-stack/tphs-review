@@ -1,0 +1,29 @@
+name: Copy FULL videos from Drive to Releases
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install gdown
+      - name: Download each video and attach it to its own release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -u
+          while read -r id name; do
+            [ -z "$id" ] && continue
+            tag="$(echo "$name" | sed 's/_FULL.mp4//; s/This_Is_//' | tr 'A-Z_' 'a-z-')-full"
+            if gh release view "$tag" >/dev/null 2>&1; then echo "skip $name (already there)"; continue; fi
+            echo "== $name -> $tag"
+            if gdown --quiet "https://drive.google.com/uc?id=$id" -O "$name"; then
+              title="$(echo "$name" | sed 's/_FULL.mp4//; s/_/ /g') FULL"
+              gh release create "$tag" "$name" --title "$title" --notes "Original from Drive" && echo "OK $name"
+              rm -f "$name"
+            else
+              echo "FAILED $name"
+            fi
+          done < videos.txt
