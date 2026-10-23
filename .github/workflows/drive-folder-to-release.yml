@@ -1,0 +1,24 @@
+name: Copy a story's parts folder from Drive to a Release
+on:
+  workflow_dispatch:
+    inputs:
+      folder_id: {description: "Drive folder ID", required: true}
+      tag: {description: "Release tag, e.g. virginia-parts", required: true}
+permissions:
+  contents: write
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install gdown
+      - name: Download folder and attach files (skip FULL and 2x videos)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          mkdir parts && cd parts
+          gdown --folder "https://drive.google.com/drive/folders/${{ inputs.folder_id }}" -O . --remaining-ok
+          find . -type f \( -iname '*_FULL.mp4' -o -iname '*_2x.mp4' \) -delete
+          ls -la . */ || true
+          gh release create "${{ inputs.tag }}" -R "$REPO" --title "${{ inputs.tag }}" --notes "Editing parts from Drive" || true
+          find . -type f -print0 | xargs -0 -I{} gh release upload "${{ inputs.tag }}" "{}" -R "$REPO" --clobber
