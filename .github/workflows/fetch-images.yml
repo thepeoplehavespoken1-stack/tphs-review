@@ -1,0 +1,32 @@
+name: Fetch real photos into a Release
+on:
+  workflow_dispatch:
+    inputs:
+      tag: {description: "Release tag", required: true}
+      items: {description: "Space-separated name|url pairs (url may be wiki:Article_Title for its lead image)", required: true}
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+          ITEMS: ${{ inputs.items }}
+        run: |
+          gh release create "$TAG" -R "$REPO" --title "$TAG" --notes "Real photos for edits" >> log.txt 2>&1 || true
+          UA="TPHS-editor/1.0 (thepeoplehavespoken1@gmail.com)"
+          for it in $ITEMS; do
+            name="${it%%|*}"; url="${it#*|}"
+            if [[ "$url" == wiki:* ]]; then
+              t="${url#wiki:}"
+              url=$(curl -sA "$UA" "https://en.wikipedia.org/w/api.php?action=query&titles=$t&prop=pageimages&piprop=original&format=json" | jq -r '.query.pages[].original.source')
+              echo "$name <- $url" >> log.txt
+            fi
+            if curl -sfLA "$UA" -o "$name" "$url"; then
+              gh release upload "$TAG" "$name" -R "$REPO" --clobber && echo "OK $name $(stat -c%s "$name")" >> log.txt
+            else echo "FAILED $name $url" >> log.txt; fi
+          done
+          gh release upload "$TAG" log.txt -R "$REPO" --clobber
