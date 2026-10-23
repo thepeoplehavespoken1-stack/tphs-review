@@ -1,0 +1,22 @@
+name: Publish finished video from outbox
+on:
+  push:
+    branches: ["outbox-*"]
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild split files and attach to the release named in outbox/TAG
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd outbox
+          TAG=$(cat TAG); TITLE=$(cat TITLE)
+          for base in $(ls *.part00 2>/dev/null | sed 's/.part00$//'); do cat "$base".part* > "$base"; rm "$base".part*; done
+          gh release create "$TAG" --title "$TITLE" --notes "Final cut by the editor" || true
+          for f in $(ls | grep -v -e '^TAG$' -e '^TITLE$'); do gh release upload "$TAG" "$f" --clobber; done
+      - name: Remove the outbox branch
+        run: git push origin --delete "${GITHUB_REF_NAME}"
