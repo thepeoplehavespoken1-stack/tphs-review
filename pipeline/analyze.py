@@ -22,7 +22,11 @@ for f in sorted(glob.glob(d + "/*.jpg")):
         yy = y / 1920 * H; hh = 55 / 1920 * H
         band = e[int(yy - hh):int(yy + hh), int(.12 * W):int(.88 * W)]
         dens[y] = float(band.mean())
-    card = navy > 0.30 or box > 0.2
+    band = a[int(.52 * H):int(.72 * H)]
+    br, bg, bb = band[..., 0], band[..., 1], band[..., 2]
+    red = float(((br > 170) & (bg < 70) & (bb < 70)).mean())
+    white = float(((br > 235) & (bg > 235) & (bb > 235)).mean())
+    card = navy > 0.30 or box > 0.2 or red > 0.03 or white > 0.12
     rows.append({"t": t, "navy": navy, "box": box, "card": card, "dens": dens})
 # choose y per frame
 for R in rows:

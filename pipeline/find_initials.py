@@ -24,9 +24,15 @@ while True:
     a = np.frombuffer(buf, np.uint8).reshape(H, W, 3)
     for r in detect(a):
         hits.append((t, r))
-        key = (round(r[0] / 30), round(r[1] / 30))
-        if key not in keep:
-            keep[key] = (t, r, a.copy())
+        # same box = same spot and seen within the last 3 s
+        key = None
+        for kk, v in keep.items():
+            if abs(v[1][0] - r[0]) < 30 and abs(v[1][1] - r[1]) < 30 and t - v[3] <= 3:
+                key = kk; break
+        if key is None:
+            keep[len(keep)] = [t, r, a.copy(), t]
+        else:
+            keep[key][3] = t
 print(CODE, "hits", len(hits), "distinct boxes", len(keep))
 
 def ocr_name(a, r):
@@ -56,14 +62,14 @@ def wiki_img(title):
 
 TITLES = r"^(Former |Then-)?(Gov\.|Governor|Sen\.|Senator|Rep\.|Representative|Judge|Justice|Chief Justice|Comm\.|Commissioner|AG|Attorney General|Director|Speaker|Lt\. Gov\.)\s+"
 boxes = []
-for n, (key, (t, r, a)) in enumerate(sorted(keep.items(), key=lambda kv: kv[1][0])):
+for n, (key, (t, r, a, tend)) in enumerate(sorted(keep.items(), key=lambda kv: kv[1][0])):
     raw = ocr_name(a, r)
     name = re.sub(TITLES, "", raw).strip()
     name = re.sub(r"\s*\((R|D|L|I)\)", "", name)
-    ts = sorted(set(h[0] for h in hits if abs(h[1][0] - r[0]) < 30 and abs(h[1][1] - r[1]) < 30))
+    ts = sorted(set(h[0] for h in hits if abs(h[1][0] - r[0]) < 30 and abs(h[1][1] - r[1]) < 30 and t <= h[0] <= tend))
     rec = {"id": n, "raw": raw, "name": name, "rect": r, "times": ts, "photo": None, "wiki": None, "desc": None}
     try:
-        for q in [f"{name} {STATE}", name]:
+        for q in ([] if os.environ.get('NOWIKI') else [f"{name} {STATE}", name]):
             for title in wiki(q)[:3]:
                 last = name.split()[-1].lower() if name.split() else "~"
                 if last in title.lower():

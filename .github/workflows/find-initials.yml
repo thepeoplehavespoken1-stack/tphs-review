@@ -20,6 +20,6 @@ jobs:
         run: |
           C=${{ matrix.st.code }}
           gh release download ${{ matrix.st.slug }}-parts -R ${{ github.repository }} -p ${C}_01_picture_only.mp4
-          python3 pipeline/find_initials.py ${C}_01_picture_only.mp4 $C "${{ matrix.st.name }}" out
+          NOWIKI=1 python3 pipeline/find_initials.py ${C}_01_picture_only.mp4 $C "${{ matrix.st.name }}" out
           gh release create officials -R ${{ github.repository }} --title "Officials photo lookup" --notes internal || true
           cd out; gh release upload officials ${C}_initials.json ${C}_initials_sheet.jpg $(ls ${C}_[0-9]*.jpg ${C}_box*.jpg 2>/dev/null) -R ${{ github.repository }} --clobber

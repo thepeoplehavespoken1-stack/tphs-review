@@ -82,12 +82,14 @@ for b in re.split(r"\n\s*\n", txt):
     a, z = [x.strip().replace(",", ".") for x in L[1].split("-->")]
     def cv(t):
         h, m, s = t.split(":"); return int(h) * 3600 + int(m) * 60 + float(s)
-    lines.append("Dialogue: 0,%s,%s,Label,,0,0,0,,%s\n" % (ts(cv(a)), ts(cv(z)), body))
+    n = len(body)
+    fs = 62 if n <= 24 else 52 if n <= 34 else 44
+    lines.append("Dialogue: 0,%s,%s,Label,,0,0,0,,{\\fs%d}%s\n" % (ts(cv(a)), ts(cv(z)), fs, body))
 head = """[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
 PlayResY: 1920
-WrapStyle: 2
+WrapStyle: 0
 ScaledBorderAndShadow: yes
 
 [V4+ Styles]
