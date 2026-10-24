@@ -8,6 +8,9 @@ for f in 01_picture_only.mp4 02_voice.mp3 03_sound_effects.mp3 04_music_cues.mp3
   gh release download "$REL" -R "$REPO" -p "${CODE}_$f" --clobber; done
 gh release download "$REL" -R "$REPO" -p "${CODE}_captions.srt" --clobber
 mv ${CODE}_01_picture_only.mp4 pic.mp4; mv ${CODE}_02_voice_words.json words.json
+if [ -f "$P/officials/${CODE}.json" ]; then
+  python3 "$P/replace_initials.py" pic.mp4 "$P/officials/${CODE}.json" "$P/officials/img" pic_photos.mp4 && mv pic_photos.mp4 pic.mp4
+fi
 DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 pic.mp4)
 echo "== $NAME  $DUR s"
 mkdir -p fr; ffmpeg -hide_banner -loglevel error -i pic.mp4 -vf "fps=4,scale=360:640" -q:v 4 fr/%05d.jpg

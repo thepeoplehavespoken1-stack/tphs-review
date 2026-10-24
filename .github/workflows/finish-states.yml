@@ -18,7 +18,7 @@ jobs:
         st: ${{ fromJSON(inputs.states) }}
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg tesseract-ocr fonts-dejavu-core > /dev/null && pip install -q numpy pillow
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg tesseract-ocr fonts-dejavu-core > /dev/null && pip install -q numpy pillow scipy
       - name: Edit ${{ matrix.st.name }}
         env:
           GH_TOKEN: ${{ github.token }}
