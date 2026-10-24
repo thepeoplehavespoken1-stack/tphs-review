@@ -22,7 +22,9 @@ jobs:
             name="${it%%|*}"; url="${it#*|}"
             if [[ "$url" == wiki:* ]]; then
               t=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "${url#wiki:}")
-              url=$(curl -sA "$UA" "https://en.wikipedia.org/w/api.php?action=query&titles=$t&redirects=1&prop=pageimages|description&piprop=original&format=json" > meta.json; url=$(jq -r '.query.pages[].original.source' meta.json); echo "DESC $name: $(jq -r '.query.pages[] | .title + " -- " + (.description // "")' meta.json)" >> log.txt
+              curl -sA "$UA" "https://en.wikipedia.org/w/api.php?action=query&titles=$t&redirects=1&prop=pageimages|description&piprop=original&format=json" > meta.json
+              url=$(jq -r '.query.pages[].original.source' meta.json)
+              echo "DESC $name: $(jq -r '.query.pages[] | .title + " -- " + (.description // "")' meta.json)" >> log.txt
               echo "$name <- $url" >> log.txt
             fi
             if curl -sfLA "$UA" -o "$name" "$url"; then
