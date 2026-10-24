@@ -114,11 +114,12 @@ def stamp_img(label):
 stamp_cache = {s["n"]: stamp_img(s["label"]) for s in stamps}
 def tally(dr, done, cur):
     # row of all numbers; finished ones crossed out in red, current one gold
-    ns = [s_['n'] for s_ in stamps]; per = min(12, len(ns)); cw = 1000 // per
+    ns = [s_['n'] for s_ in stamps]; per = len(ns); cw = 1000 // per
+    fsz = 48 if per <= 12 else 38 if per <= 15 else 32
     for k, n in enumerate(ns):
         row, col = divmod(k, per); x = 40 + col * cw; y = 1620 + row * 90
         col_ = GOLD if n == cur else (190, 200, 215) if n not in done else WHITE
-        t = str(n); f = F(48); tw = dr.textlength(t, font=f)
+        t = str(n); f = F(fsz); tw = dr.textlength(t, font=f)
         dr.text((x + (cw - tw) / 2, y), t, font=f, fill=col_, stroke_width=3, stroke_fill=(0, 0, 0))
         if n in done and n != cur:
             dr.line((x + cw * 0.2, y + 44, x + cw * 0.8, y + 6), fill=RED, width=7)

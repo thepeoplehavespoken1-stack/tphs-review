@@ -31,6 +31,21 @@ echo '{"word": {"ensures": "insures"}, "phrase": {}}' > fixes.json
 [ -f "$P/fixes/${CODE}.json" ] && cp "$P/fixes/${CODE}.json" fixes.json
 python3 -c "import json;json.dump(json.load(open('an.json'))['zones'],open('zones.json','w'))"
 python3 "$P/wordcaps.py" words.json fixes.json ${CODE}_captions.srt caps.ass zones.json "$NAME" "${T}_captions_YouTube.srt"
+python3 - <<'PYX'
+import json, re
+r = json.load(open("recap.json"))
+if r.get("stamps"):
+    def sec(x):
+        h, m, s = x.split(":"); return int(h) * 3600 + int(m) * 60 + float(s)
+    out = []
+    for l in open("caps.ass", encoding="utf-8"):
+        if l.startswith("Dialogue: 0,") and ",Label," in l:
+            a, b = l.split(",")[1:3]
+            if sec(b) > r["start"] and sec(a) < r["end"]:
+                continue
+        out.append(l)
+    open("caps.ass", "w", encoding="utf-8").writelines(out)
+PYX
 # audio: voice + sfx + music + law-card slams, then loudness to -14 LUFS
 ffmpeg -hide_banner -loglevel error -y -i ${CODE}_02_voice.mp3 -i ${CODE}_03_sound_effects.mp3 -i ${CODE}_04_music_cues.mp3 -i slams.wav \
   -filter_complex "[0:a]aresample=48000[a0];[1:a]aresample=48000[a1];[2:a]aresample=48000,volume=0.8[a2];[3:a]volume=0.55[a3];[a0][a1][a2][a3]amix=inputs=4:normalize=0:duration=first[m]" \
@@ -63,7 +78,7 @@ import json
 r = json.load(open("recap.json")); S, E = r["start"], r["end"]
 Z = "(1+0.12*clip((t-%.2f)/(%.2f)\\,0\\,1)*between(t\\,%.2f\\,%.2f))" % (S, E - S, S, E)
 sh = "+".join("16*sin(95*(t-%.2f))*between(t\\,%.2f\\,%.2f)" % (x["t"], x["t"], x["t"] + (0.45 if k == len(r["stamps"]) - 1 else 0.25)) for k, x in enumerate(r["stamps"]))
-print("scale=w='trunc(1080*%s/2)*2':h='trunc(1920*%s/2)*2':eval=frame,crop=1080:1920:x='(in_w-1080)/2+(%s)':y='(in_h-1920)/2+0.6*(%s)'" % (Z, Z, sh, sh))
+print("scale=w='trunc(1080*%s/2)*2':h='trunc(1920*%s/2)*2':eval=frame,crop=1080:1920:x='(in_w-1080)/2+(%s)':y='(in_h-1920)/2+0.6*(%s)',boxblur=10:2:enable='between(t\\,%.2f\\,%.2f)'" % (Z, Z, sh, sh, S, E))
 PYX
 )
   RIN="-i recap.mov"; RF="[$PMAP]$ZF[zm];[$NI:v]setpts=PTS+$RS/TB[rc];[zm][rc]overlay=0:0:eof_action=pass[pre]"
