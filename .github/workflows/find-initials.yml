@@ -1,0 +1,25 @@
+name: Find initials boxes and look up real photos
+on:
+  workflow_dispatch:
+    inputs:
+      states: {description: 'JSON list of {code,name,slug}', required: true}
+permissions:
+  contents: write
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        st: ${{ fromJSON(inputs.states) }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg tesseract-ocr fonts-dejavu-core > /dev/null && pip install -q numpy pillow scipy
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          C=${{ matrix.st.code }}
+          gh release download ${{ matrix.st.slug }}-parts -R ${{ github.repository }} -p ${C}_01_picture_only.mp4
+          python3 pipeline/find_initials.py ${C}_01_picture_only.mp4 $C "${{ matrix.st.name }}" out
+          gh release create officials -R ${{ github.repository }} --title "Officials photo lookup" --notes internal || true
+          cd out; gh release upload officials ${C}_initials.json ${C}_initials_sheet.jpg $(ls ${C}_[0-9]*.jpg ${C}_box*.jpg 2>/dev/null) -R ${{ github.repository }} --clobber
