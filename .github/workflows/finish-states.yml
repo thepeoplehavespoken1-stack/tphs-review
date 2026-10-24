@@ -1,0 +1,40 @@
+name: Finish state episodes (captions, slams, end card, parts, covers)
+on:
+  workflow_dispatch:
+    inputs:
+      states:
+        description: 'JSON list like [{"code":"TN","name":"Tennessee","slug":"tennessee"}]'
+        required: true
+permissions:
+  contents: write
+jobs:
+  finish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 15
+      matrix:
+        st: ${{ fromJSON(inputs.states) }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg tesseract-ocr fonts-dejavu-core > /dev/null && pip install -q numpy pillow
+      - name: Edit ${{ matrix.st.name }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          mkdir work && cd work
+          ../pipeline/finish_state.sh "${{ matrix.st.code }}" "${{ matrix.st.name }}" "${{ matrix.st.slug }}"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd work
+          TAG="${{ matrix.st.slug }}-fixed"
+          gh release create "$TAG" --title "This Is ${{ matrix.st.name }} — final cuts" --notes "Final cuts by the editor: FULL, 2x, platform parts, covers, YouTube captions." || true
+          for f in This_Is_*; do gh release upload "$TAG" "$f" --clobber; done
+          gh release create review-sheets --title "Editor review sheets" --notes "internal" || true
+          for f in ${{ matrix.st.code }}_review_*.jpg durations.txt; do
+            [ "$f" = durations.txt ] && cp durations.txt ${{ matrix.st.code }}_durations.txt && f=${{ matrix.st.code }}_durations.txt
+            gh release upload review-sheets "$f" --clobber; done
