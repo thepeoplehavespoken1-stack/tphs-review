@@ -1,0 +1,34 @@
+name: Search Wikimedia Commons for portraits
+on:
+  workflow_dispatch:
+    inputs:
+      tag: {required: true}
+      items: {description: "key|search terms (use + for spaces), space separated", required: true}
+permissions:
+  contents: write
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ITEMS: ${{ inputs.items }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          UA="TPHS-editor/1.0 (thepeoplehavespoken1@gmail.com)"
+          gh release create "$TAG" -R "$REPO" --title "$TAG" --notes internal || true
+          : > cands.txt
+          for it in $ITEMS; do
+            k="${it%%|*}"; q="${it#*|}"; q="${q//+/ }"
+            curl -sG -A "$UA" "https://commons.wikimedia.org/w/api.php" --data-urlencode "action=query" --data-urlencode "generator=search" \
+              --data-urlencode "gsrsearch=$q filetype:bitmap" --data-urlencode "gsrnamespace=6" --data-urlencode "gsrlimit=3" \
+              --data-urlencode "prop=imageinfo" --data-urlencode "iiprop=url" --data-urlencode "iiurlwidth=500" --data-urlencode "format=json" > r.json
+            n=0
+            for row in $(jq -r '.query.pages // {} | to_entries[] | .value | "\(.index)|\(.imageinfo[0].thumburl)|\(.title|@uri)"' r.json | sort -n); do
+              n=$((n+1)); url=$(echo "$row" | cut -d'|' -f2); t=$(echo "$row" | cut -d'|' -f3)
+              curl -sfL -A "$UA" -o "${k}_c$n.jpg" "$url" && gh release upload "$TAG" "${k}_c$n.jpg" -R "$REPO" --clobber && echo "$k c$n $t" >> cands.txt
+            done
+            [ $n = 0 ] && echo "$k NONE" >> cands.txt
+          done
+          gh release upload "$TAG" cands.txt -R "$REPO" --clobber
