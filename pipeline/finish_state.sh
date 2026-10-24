@@ -58,7 +58,7 @@ RS=$(python3 -c "import json;r=json.load(open('recap.json'));print(r.get('start'
 RIN=""; RF="[$PMAP]null[pre]"
 if [ -n "$RS" ]; then
   NI=$(( $(echo "$PIN" | grep -o -- '-i ' | wc -l) + 2 ))
-  RIN="-i recap.mp4"; RF="[$NI:v]setpts=PTS+$RS/TB[rc];[$PMAP][rc]overlay=0:0:eof_action=pass[pre]"
+  RIN="-i recap.mov"; RF="[$NI:v]setpts=PTS+$RS/TB[rc];[$PMAP][rc]overlay=0:0:eof_action=pass[pre]"
 fi
 ffmpeg -hide_banner -loglevel error -y -i pic.mp4 -i mix.wav $PIN $RIN -filter_complex "[0:v]fps=30,scale=1080:1920:flags=lanczos,unsharp=5:5:0.4[b0];${PF}${RF};[pre]ass=caps.ass,format=yuv420p[v]" \
   -map "[v]" -map 1:a -t "$DUR" -c:v libx264 -preset veryfast -crf 19 -c:a aac -b:a 192k -ar 48000 -ac 2 main.mp4

@@ -82,14 +82,16 @@ for s in stamps:
 B = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 NAVY, NAVY2, GOLD, WHITE, RED = (12, 24, 46), (24, 42, 76), (240, 196, 80), (255, 255, 255), (206, 32, 44)
 def F(s): return ImageFont.truetype(B, s)
-bg = Image.new("RGB", (1080, 1920), NAVY); d = ImageDraw.Draw(bg)
-for y in range(1920):
-    t = y / 1920; d.line([(0, y), (1080, y)], fill=tuple(int(NAVY[i] * (1 - t) + NAVY2[i] * t) for i in range(3)))
+bg = Image.new("RGBA", (1080, 1920), (0, 0, 0, 0)); d = ImageDraw.Draw(bg)
+# keep the story picture underneath: only a light dark wash so the stamps read
+d.rectangle((0, 0, 1080, 1920), fill=(8, 14, 30, 95))
+d.rectangle((0, 90, 1080, 300), fill=(8, 14, 30, 170))
+d.rectangle((0, 1590, 1080, 1720), fill=(8, 14, 30, 170))
 def ctext(d, y, t, f, fill, stroke=0):
     w = d.textlength(t, font=f); d.text(((1080 - w) / 2, y), t, font=f, fill=fill, stroke_width=stroke, stroke_fill=(0, 0, 0))
 head = "THIS IS " + NAME.upper()
-ctext(d, 120, head, F(56 if len(head) < 18 else 46), WHITE)
-ctext(d, 200, "THE COUNTDOWN", F(70), GOLD)
+ctext(d, 120, head, F(56 if len(head) < 18 else 46), WHITE, 3)
+ctext(d, 200, "THE COUNTDOWN", F(70), GOLD, 4)
 def wrap(text, f, maxw):
     lines, cur = [], ""
     for w in text.split():
@@ -105,7 +107,7 @@ def stamp_img(label):
         f = F(f.size - 6); lines = wrap(label, f, 820)
     lh = int(f.size * 1.18); h = lh * len(lines) + 60; w = 900
     im = Image.new("RGBA", (w, h), (0, 0, 0, 0)); dd = ImageDraw.Draw(im)
-    dd.rounded_rectangle((6, 6, w - 6, h - 6), radius=18, outline=RED, width=10, fill=(206, 32, 44, 40))
+    dd.rounded_rectangle((6, 6, w - 6, h - 6), radius=18, outline=RED, width=10, fill=(255, 255, 255, 225))
     for k, l in enumerate(lines):
         tw = dd.textlength(l, font=f); dd.text(((w - tw) / 2, 30 + k * lh), l, font=f, fill=RED)
     return im.rotate(-4, expand=True, resample=Image.BICUBIC)
@@ -115,15 +117,15 @@ def tally(dr, done, cur):
     ns = [s_['n'] for s_ in stamps]; per = min(12, len(ns)); cw = 1000 // per
     for k, n in enumerate(ns):
         row, col = divmod(k, per); x = 40 + col * cw; y = 1620 + row * 90
-        col_ = GOLD if n == cur else (120, 135, 160) if n not in done else WHITE
+        col_ = GOLD if n == cur else (190, 200, 215) if n not in done else WHITE
         t = str(n); f = F(48); tw = dr.textlength(t, font=f)
-        dr.text((x + (cw - tw) / 2, y), t, font=f, fill=col_)
+        dr.text((x + (cw - tw) / 2, y), t, font=f, fill=col_, stroke_width=3, stroke_fill=(0, 0, 0))
         if n in done and n != cur:
             dr.line((x + cw * 0.2, y + 44, x + cw * 0.8, y + 6), fill=RED, width=7)
 FPS = 30
 nfr = int(math.ceil((end - start) * FPS))
-p = subprocess.Popen(["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", "1080x1920", "-r", str(FPS), "-i", "-",
-                      "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p", f"{WD}/recap.mp4"], stdin=subprocess.PIPE)
+p = subprocess.Popen(["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", "1080x1920", "-r", str(FPS), "-i", "-",
+                      "-c:v", "qtrle", f"{WD}/recap.mov"], stdin=subprocess.PIPE)
 for fr in range(nfr):
     t = start + fr / FPS
     cur = None
@@ -145,7 +147,7 @@ for fr in range(nfr):
             st2 = st.resize((int(st.width * ss), int(st.height * ss)))
             im.paste(st2, ((1080 - st2.width) // 2, 1030 + (st.height - st2.height) // 2), st2)
     else:
-        ctext(dr, 700, str(TOP), F(380), (90, 105, 135))
+        pass
     tally(dr, done, cur["n"] if cur else None)
     p.stdin.write(im.tobytes())
 p.stdin.close(); p.wait()
