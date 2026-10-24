@@ -25,6 +25,20 @@ try:
             ways = int(m.group(1)); break
 except Exception as e:
     print("ocr fail", e)
+# the narrator says the number in the cold open ("there are eight ways") - trust that first
+NUMS = {w: i for i, w in enumerate("zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split())}
+said = None
+ws = [(re.sub(r"[^\w]", "", wd["w"]).lower(), float(wd["s"])) for seg in json.load(open(f"{WD}/words.json")) for wd in seg["words"]]
+for i in range(1, len(ws)):
+    if ws[i][1] > 120: break
+    if ws[i][0] == "ways":
+        p = ws[i - 1][0]
+        n = int(p) if p.isdigit() else NUMS.get(p)
+        if n and 3 <= n <= 20:
+            said = n; break
+if said:
+    if ways and ways != said: print("ocr said", ways, "narrator said", said)
+    ways = said
 if not ways:
     ways = len(ways_on)
 print("ways", ways, "law cards", len(on), on)
