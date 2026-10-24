@@ -17,6 +17,7 @@ jobs:
           TAG=$(cat TAG); TITLE=$(cat TITLE)
           for base in $(ls *.part00 2>/dev/null | sed 's/.part00$//'); do cat "$base".part* > "$base"; rm "$base".part*; done
           gh release create "$TAG" --title "$TITLE" --notes "Final cut by the editor" || true
-          for f in $(ls | grep -v -e '^TAG$' -e '^TITLE$'); do gh release upload "$TAG" "$f" --clobber; done
+          if [ -f REMOVE ]; then while read -r old; do [ -n "$old" ] && gh release delete-asset "$TAG" "$old" -y || true; done < REMOVE; fi
+          for f in $(ls | grep -v -e '^TAG$' -e '^TITLE$' -e '^REMOVE$'); do gh release upload "$TAG" "$f" --clobber; done
       - name: Remove the outbox branch
         run: git push origin --delete "${GITHUB_REF_NAME}"
