@@ -26,7 +26,21 @@ import sys,json,re;s=sys.stdin.read();j=json.loads(s[s.rindex('{'):s.rindex('}')
 print('measured_I=%s:measured_TP=%s:measured_LRA=%s:measured_thresh=%s:offset=%s'%(j['input_i'],j['input_tp'],j['input_lra'],j['input_thresh'],j['target_offset']))")
 ffmpeg -hide_banner -loglevel error -y -i mix_raw.wav -af "loudnorm=I=-14:TP=-1.5:LRA=11:$M:linear=true" -ar 48000 mix.wav
 # main picture: upscale to 1080x1920 + captions
-ffmpeg -hide_banner -loglevel error -y -i pic.mp4 -i mix.wav -filter_complex "[0:v]fps=30,scale=1080:1920:flags=lanczos,unsharp=5:5:0.4,ass=caps.ass,format=yuv420p[v]" \
+# patches: real-photo panels over leaked editor notes (pipeline/patches/CODE.json)
+read PIN PF PMAP <<< $(python3 - "$P/patches/${CODE}.json" <<'PYX'
+import json, sys, os
+f = sys.argv[1]
+L = json.load(open(f)) if os.path.exists(f) else []
+d = os.path.dirname(f)
+ins = " ".join("-loop 1 -i %s/%s" % (d, x["png"]) for x in L)
+chain, last = [], "b0"
+for i, x in enumerate(L):
+    chain.append("[%s][%d:v]overlay=0:0:shortest=1:enable='between(t,%.2f,%.2f)'[b%d]" % (last, i + 2, x["a"], x["b"], i + 1)); last = "b%d" % (i + 1)
+print(ins.replace(" ", "@") or "-", (";".join(chain) + ";") if chain else "-", last)
+PYX
+)
+PIN="${PIN//@/ }"; [ "$PIN" = "-" ] && PIN=""; [ "$PF" = "-" ] && PF=""
+ffmpeg -hide_banner -loglevel error -y -i pic.mp4 -i mix.wav $PIN -filter_complex "[0:v]fps=30,scale=1080:1920:flags=lanczos,unsharp=5:5:0.4[b0];${PF}[$PMAP]ass=caps.ass,format=yuv420p[v]" \
   -map "[v]" -map 1:a -t "$DUR" -c:v libx264 -preset veryfast -crf 19 -c:a aac -b:a 192k -ar 48000 -ac 2 main.mp4
 E="$P/endcard.mp4"
 printf "file 'main.mp4'\nfile '%s'\n" "$E" > c1.txt
