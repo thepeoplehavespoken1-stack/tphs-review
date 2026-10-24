@@ -1,0 +1,35 @@
+name: Transcribe a voice track (word timings)
+on:
+  workflow_dispatch:
+    inputs:
+      tag: {description: "Release tag holding the audio", required: true}
+      file: {description: "Audio file name in that release", required: true}
+      model: {description: "Whisper model", required: false, default: "small.en"}
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - run: pip install faster-whisper==1.0.3
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh release download "${{ inputs.tag }}" -R "$REPO" -p "${{ inputs.file }}"
+          cat > t.py <<'PY'
+          import json, sys
+          from faster_whisper import WhisperModel
+          m = WhisperModel(sys.argv[2], device="cpu", compute_type="int8")
+          segs, info = m.transcribe(sys.argv[1], word_timestamps=True, vad_filter=True, beam_size=5)
+          out = []
+          for s in segs:
+              out.append({"start": s.start, "end": s.end, "text": s.text,
+                          "words": [{"w": w.word, "s": w.start, "e": w.end, "p": w.probability} for w in s.words]})
+          json.dump(out, open(sys.argv[3], "w"), indent=0)
+          print(len(out), "segments")
+          PY
+          base="${{ inputs.file }}"; base="${base%.*}"
+          python t.py "${{ inputs.file }}" "${{ inputs.model }}" "${base}_words.json"
+          gh release upload "${{ inputs.tag }}" "${base}_words.json" -R "$REPO" --clobber
