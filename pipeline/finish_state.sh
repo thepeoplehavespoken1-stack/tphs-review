@@ -15,6 +15,17 @@ DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 pic.mp4)
 echo "== $NAME  $DUR s"
 mkdir -p fr; ffmpeg -hide_banner -loglevel error -i pic.mp4 -vf "fps=4,scale=360:640" -q:v 4 fr/%05d.jpg
 python3 "$P/analyze.py" fr 0.25 an.json
+# final countdown: stamped full-screen recap synced to the narrator
+python3 "$P/recap.py" words.json "$NAME" . "$P/recap_override/${CODE}.json" || echo '{"stamps": []}' > recap.json
+python3 - <<'PYX'
+import json
+r = json.load(open("recap.json")); an = json.load(open("an.json"))
+if r.get("stamps"):
+    an["cards"].append([r["start"], r["end"]])
+    an["zones"] = [z for z in an["zones"] if z[1] <= r["start"] or z[0] >= r["end"]] + [[r["start"], r["end"], 1790]]
+    an["recap_slams"] = [s["t"] for s in r["stamps"]]
+json.dump(an, open("an.json", "w"))
+PYX
 python3 "$P/prep.py" "$CODE" "$NAME" . "$DUR"
 echo '{"word": {"ensures": "insures"}, "phrase": {}}' > fixes.json
 [ -f "$P/fixes/${CODE}.json" ] && cp "$P/fixes/${CODE}.json" fixes.json
@@ -43,7 +54,13 @@ print(ins.replace(" ", "@") or "-", (";".join(chain) + ";") if chain else "-", l
 PYX
 )
 PIN="${PIN//@/ }"; [ "$PIN" = "-" ] && PIN=""; [ "$PF" = "-" ] && PF=""
-ffmpeg -hide_banner -loglevel error -y -i pic.mp4 -i mix.wav $PIN -filter_complex "[0:v]fps=30,scale=1080:1920:flags=lanczos,unsharp=5:5:0.4[b0];${PF}[$PMAP]ass=caps.ass,format=yuv420p[v]" \
+RS=$(python3 -c "import json;r=json.load(open('recap.json'));print(r.get('start','') if r.get('stamps') else '')")
+RIN=""; RF="[$PMAP]null[pre]"
+if [ -n "$RS" ]; then
+  NI=$(( $(echo "$PIN" | grep -o -- '-i ' | wc -l) + 2 ))
+  RIN="-i recap.mp4"; RF="[$NI:v]setpts=PTS+$RS/TB[rc];[$PMAP][rc]overlay=0:0:eof_action=pass[pre]"
+fi
+ffmpeg -hide_banner -loglevel error -y -i pic.mp4 -i mix.wav $PIN $RIN -filter_complex "[0:v]fps=30,scale=1080:1920:flags=lanczos,unsharp=5:5:0.4[b0];${PF}${RF};[pre]ass=caps.ass,format=yuv420p[v]" \
   -map "[v]" -map 1:a -t "$DUR" -c:v libx264 -preset veryfast -crf 19 -c:a aac -b:a 192k -ar 48000 -ac 2 main.mp4
 E="$P/endcard.mp4"
 printf "file 'main.mp4'\nfile '%s'\n" "$E" > c1.txt

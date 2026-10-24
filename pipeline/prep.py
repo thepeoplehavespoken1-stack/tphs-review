@@ -51,7 +51,7 @@ rng = np.random.default_rng(7)
 hit = 0.85 * np.sin(2 * np.pi * 52 * tt) * np.exp(-5 * tt) + 0.45 * np.sin(2 * np.pi * 104 * tt) * np.exp(-9 * tt) \
       + 0.5 * rng.uniform(-1, 1, tt.size) * np.exp(-28 * tt)
 hit /= np.abs(hit).max()
-for t in on:
+for t in on + an.get("recap_slams", []):
     i = int(t * sr); x[i:i + hit.size] += hit[:max(0, min(hit.size, x.size - i))]
 x = np.clip(x, -1, 1)
 st = (np.stack([x, x], 1) * 32767).astype("<i2")
