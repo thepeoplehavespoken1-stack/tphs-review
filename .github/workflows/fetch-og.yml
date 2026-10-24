@@ -1,0 +1,31 @@
+name: Fetch portrait from a page's og:image
+on:
+  workflow_dispatch:
+    inputs:
+      tag: {required: true}
+      items: {description: "name|page_url pairs, space separated", required: true}
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ITEMS: ${{ inputs.items }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
+          : > log2.txt
+          for it in $ITEMS; do
+            name="${it%%|*}"; page="${it#*|}"
+            html=$(curl -sL -A "$UA" "$page")
+            img=$(echo "$html" | grep -oP '<meta property="og:image" content="\K[^"]+' | head -1)
+            title=$(echo "$html" | grep -oP '<title>\K[^<]+' | head -1)
+            echo "PAGE $name: $title :: $img" >> log2.txt
+            if [ -n "$img" ] && ! echo "$img" | grep -qiE 'logo|default|placeholder|BP-Initials|Ballotpedia_|SubmitPhoto'; then
+              curl -sfL -A "$UA" -o "$name" "$img" && gh release upload "$TAG" "$name" -R "$REPO" --clobber && echo "OK $name" >> log2.txt || echo "FAILED $name" >> log2.txt
+            else echo "NOIMG $name" >> log2.txt; fi
+          done
+          gh release upload "$TAG" log2.txt -R "$REPO" --clobber
