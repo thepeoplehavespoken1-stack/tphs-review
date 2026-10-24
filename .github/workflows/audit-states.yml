@@ -1,0 +1,26 @@
+name: Audit state pictures (OCR every second)
+on:
+  workflow_dispatch:
+    inputs:
+      states: {description: 'JSON list of {code,slug}', required: true}
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        st: ${{ fromJSON(inputs.states) }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg tesseract-ocr > /dev/null
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          C=${{ matrix.st.code }}
+          gh release download ${{ matrix.st.slug }}-parts -R ${{ github.repository }} -p ${C}_01_picture_only.mp4
+          mkdir fr; ffmpeg -loglevel error -i ${C}_01_picture_only.mp4 -vf "fps=1,scale=1080:1920" -q:v 3 fr/%05d.jpg
+          python3 pipeline/audit.py fr > ${C}_ocr.txt
+          gh release create review-sheets -R ${{ github.repository }} --title "Editor review sheets" --notes internal || true
+          gh release upload review-sheets ${C}_ocr.txt -R ${{ github.repository }} --clobber
