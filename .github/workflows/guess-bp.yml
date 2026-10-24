@@ -1,0 +1,34 @@
+name: Guess Ballotpedia headshot URLs
+on:
+  workflow_dispatch:
+    inputs:
+      tag: {required: true}
+      items: {description: "file|First_Last[,Alt_Name...] space separated", required: true}
+permissions:
+  contents: write
+jobs:
+  guess:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ITEMS: ${{ inputs.items }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          : > log3.txt
+          for it in $ITEMS; do
+            f="${it%%|*}"; names="${it#*|}"; got=""
+            for n in ${names//,/ }; do
+              nn="${n//_/}"
+              for base in "$n" "$nn" "${n}_headshot" "${n}_2023" "${n}_2024" "${n}_2022" "${n}_2021" "${n}_2020" "${n}_2019" "${n}_2018" "${n}_2016" "${n}2" "${n}_new" "${n}_photo"; do
+                for ext in jpg png jpeg JPG PNG; do
+                  u="https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/$base.$ext"
+                  code=$(curl -s -o /dev/null -w '%{http_code}' "$u")
+                  if [ "$code" = 200 ]; then got="$u"; break 3; fi
+                done
+              done
+            done
+            if [ -n "$got" ]; then curl -sfL -o "$f" "$got" && gh release upload "$TAG" "$f" -R "$REPO" --clobber && echo "OK $f $got" >> log3.txt; else echo "MISS $f $names" >> log3.txt; fi
+          done
+          gh release upload "$TAG" log3.txt -R "$REPO" --clobber
