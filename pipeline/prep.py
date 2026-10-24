@@ -53,6 +53,20 @@ hit = 0.85 * np.sin(2 * np.pi * 52 * tt) * np.exp(-5 * tt) + 0.45 * np.sin(2 * n
 hit /= np.abs(hit).max()
 for t in on + an.get("recap_slams", []):
     i = int(t * sr); x[i:i + hit.size] += hit[:max(0, min(hit.size, x.size - i))]
+# razzle: an accelerating tick under the recap countdown + a heavy boom on the last number
+rc = json.load(open(f"{WD}/recap.json")) if __import__("os").path.exists(f"{WD}/recap.json") else {}
+if rc.get("stamps"):
+    t0, t1 = rc["stamps"][0]["t"], rc["stamps"][-1]["t"]
+    tk = np.arange(int(0.05 * sr)) / sr
+    tick = 0.35 * np.sin(2 * np.pi * 1800 * tk) * np.exp(-60 * tk)
+    t = t0
+    while t < t1:
+        i = int(t * sr); x[i:i + tick.size] += tick[:max(0, min(tick.size, x.size - i))]
+        frac = (t - t0) / max(1e-3, t1 - t0)
+        t += 0.5 - 0.32 * frac
+    tb = np.arange(int(2.2 * sr)) / sr
+    boom = 1.0 * np.sin(2 * np.pi * 42 * tb) * np.exp(-2.2 * tb) + 0.5 * rng.uniform(-1, 1, tb.size) * np.exp(-14 * tb)
+    i = int(t1 * sr); x[i:i + boom.size] += boom[:max(0, min(boom.size, x.size - i))]
 x = np.clip(x, -1, 1)
 st = (np.stack([x, x], 1) * 32767).astype("<i2")
 with wave.open(f"{WD}/slams.wav", "wb") as w:

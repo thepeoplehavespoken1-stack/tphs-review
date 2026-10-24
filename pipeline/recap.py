@@ -137,8 +137,10 @@ for fr in range(nfr):
     if cur:
         age = t - cur["t"]
         # number slams in: big -> normal over 0.15 s, with a small shake
-        sc = 1.0 + max(0, 0.15 - age) / 0.15 * 0.6
-        f = F(int(380 * sc)); txt = str(cur["n"]); tw = dr.textlength(txt, font=f)
+        last = cur["n"] == stamps[-1]["n"]
+        dur_ = 0.3 if last else 0.15
+        sc = 1.0 + max(0, dur_ - age) / dur_ * (1.2 if last else 0.6)
+        f = F(int((470 if last else 380) * sc)); txt = str(cur["n"]); tw = dr.textlength(txt, font=f)
         sh = int(10 * math.sin(age * 90)) if age < 0.25 else 0
         dr.text(((1080 - tw) / 2 + sh, 470 - (sc - 1) * 200), txt, font=f, fill=WHITE, stroke_width=10, stroke_fill=(0, 0, 0))
         if age > 0.12:
@@ -149,6 +151,16 @@ for fr in range(nfr):
     else:
         pass
     tally(dr, done, cur["n"] if cur else None)
+    if cur:
+        age = t - cur["t"]
+        if age < 0.35:
+            a = int(200 * (1 - age / 0.35))
+            ov = Image.new("RGBA", (1080, 1920), (0, 0, 0, 0)); od = ImageDraw.Draw(ov)
+            for k in range(6):
+                od.rectangle((k * 9, k * 9, 1079 - k * 9, 1919 - k * 9), outline=(230, 30, 40, max(0, a - k * 30)), width=9)
+            if cur["n"] == stamps[-1]["n"] and age < 0.2:
+                od.rectangle((0, 0, 1080, 1920), fill=(255, 255, 255, int(170 * (1 - age / 0.2))))
+            im.alpha_composite(ov)
     p.stdin.write(im.tobytes())
 p.stdin.close(); p.wait()
 print("recap ok", round(start, 2), round(end, 2), len(stamps), "stamps")
