@@ -46,8 +46,14 @@ if r.get("stamps"):
         out.append(l)
     open("caps.ass", "w", encoding="utf-8").writelines(out)
 PYX
+# clean the sound-effects track: mute AI-spoken words and goofy sounds
+gh release download "$REL" -R "$REPO" -p "${CODE}_03_sound_effects_words.json" --clobber 2>/dev/null || true
+gh release download review-sheets -R "$REPO" -p "${CODE}_sfx_events.json" --clobber 2>/dev/null || true
+python3 "$P/sfx_clean.py" "${CODE}_03_sound_effects_words.json" "${CODE}_sfx_events.json" sfx_mute.json
+SM=$(python3 -c "import json;w=json.load(open('sfx_mute.json'));print('+'.join('between(t,%.2f,%.2f)'%(a,b) for a,b,_ in w) or '0')")
+ffmpeg -hide_banner -loglevel error -y -i ${CODE}_03_sound_effects.mp3 -af "volume=0:enable='$SM'" -ar 48000 sfx_clean.wav
 # audio: voice + sfx + music + law-card slams, then loudness to -14 LUFS
-ffmpeg -hide_banner -loglevel error -y -i ${CODE}_02_voice.mp3 -i ${CODE}_03_sound_effects.mp3 -i ${CODE}_04_music_cues.mp3 -i slams.wav \
+ffmpeg -hide_banner -loglevel error -y -i ${CODE}_02_voice.mp3 -i sfx_clean.wav -i ${CODE}_04_music_cues.mp3 -i slams.wav \
   -filter_complex "[0:a]aresample=48000[a0];[1:a]aresample=48000[a1];[2:a]aresample=48000,volume=0.8[a2];[3:a]volume=0.55[a3];[a0][a1][a2][a3]amix=inputs=4:normalize=0:duration=first[m]" \
   -map "[m]" -ac 2 -ar 48000 mix_raw.wav
 M=$(ffmpeg -hide_banner -i mix_raw.wav -af loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json -f null - 2>&1 | python3 -c "
