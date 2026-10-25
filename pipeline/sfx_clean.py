@@ -8,12 +8,15 @@ STRONG = {"Frog", "Croak", "Fart", "Burping, eructation", "Boing", "Squeak", "In
 win = []
 if os.path.exists(wf):
     for s in json.load(open(wf)):
-        win.append([max(0, s["start"] - 0.15), s["end"] + 0.15, "speech: " + s["text"].strip()[:40]])
+        for w in s.get("words", []):
+            a, b = float(w["s"]), float(w["e"])
+            b = min(b, a + 1.5)            # whisper stretches words over silence; a spoken word is short
+            win.append([max(0, a - 0.15), b + 0.15, "speech: " + w["w"].strip()[:20]])
 if os.path.exists(ef):
     for e in json.load(open(ef)):
         lab = e.get("labels", {}); top = e.get("top", {})
         bad = [k for k, v in lab.items() if (k in STRONG and v >= 0.4) or (k == "Animal" and v >= 0.8)]
-        if bad or top.get("Speech", 0) >= 0.6:
+        if bad:
             win.append([e["start"], e["end"], "sound: " + ", ".join(bad or ["speech"])])
 win.sort()
 merged = []
