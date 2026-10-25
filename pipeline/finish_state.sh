@@ -78,7 +78,7 @@ import json
 r = json.load(open("recap.json")); S, E = r["start"], r["end"]
 Z = "(1+0.12*clip((t-%.2f)/(%.2f)\\,0\\,1)*between(t\\,%.2f\\,%.2f))" % (S, E - S, S, E)
 sh = "+".join("16*sin(95*(t-%.2f))*between(t\\,%.2f\\,%.2f)" % (x["t"], x["t"], x["t"] + (0.45 if k == len(r["stamps"]) - 1 else 0.25)) for k, x in enumerate(r["stamps"]))
-print("scale=w='trunc(1080*%s/2)*2':h='trunc(1920*%s/2)*2':eval=frame,crop=1080:1920:x='(in_w-1080)/2+(%s)':y='(in_h-1920)/2+0.6*(%s)',boxblur=10:2:enable='between(t\\,%.2f\\,%.2f)'" % (Z, Z, sh, sh, S, E))
+print("scale=w='trunc(1080*%s/2)*2':h='trunc(1920*%s/2)*2':eval=frame,crop=1080:1920:x='(in_w-1080)/2+(%s)':y='(in_h-1920)/2+0.6*(%s)',boxblur=22:2:enable='between(t\\,%.2f\\,%.2f)'" % (Z, Z, sh, sh, S, E))
 PYX
 )
   RIN="-i recap.mov"; RF="[$PMAP]$ZF[zm];[$NI:v]setpts=PTS+$RS/TB[rc];[zm][rc]overlay=0:0:eof_action=pass[pre]"
