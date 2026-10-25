@@ -87,6 +87,19 @@ bg = Image.new("RGBA", (1080, 1920), (0, 0, 0, 0)); d = ImageDraw.Draw(bg)
 d.rectangle((0, 0, 1080, 1920), fill=(8, 14, 30, 95))
 d.rectangle((0, 90, 1080, 300), fill=(8, 14, 30, 170))
 d.rectangle((0, 1590, 1080, 1720), fill=(8, 14, 30, 170))
+# soft dark bands behind the big number and the tally, so old on-screen numbers can't compete
+import numpy as _np
+_a = _np.zeros((1920, 1080), _np.float32)
+for y0, y1, peak in [(300, 900, 150), (1540, 1920, 140)]:
+    ys = _np.arange(1920)[:, None]
+    mid, half = (y0 + y1) / 2, (y1 - y0) / 2
+    band = _np.clip(1 - _np.abs(ys - mid) / half, 0, 1) ** 0.6 * peak
+    _a = _np.maximum(_a, _np.repeat(band, 1080, axis=1))
+_base = _np.array(bg).astype(_np.float32)
+_alpha = _base[..., 3:4] / 255.0; _add = (_a[..., None] / 255.0)
+_newa = _alpha + _add * (1 - _alpha)
+_rgb = (_base[..., :3] * _alpha + _np.array([8, 14, 30]) * _add * (1 - _alpha)) / _np.maximum(_newa, 1e-6)
+bg = Image.fromarray(_np.dstack([_rgb, _newa * 255]).astype(_np.uint8), "RGBA"); d = ImageDraw.Draw(bg)
 def ctext(d, y, t, f, fill, stroke=0):
     w = d.textlength(t, font=f); d.text(((1080 - w) / 2, y), t, font=f, fill=fill, stroke_width=stroke, stroke_fill=(0, 0, 0))
 head = "THIS IS " + NAME.upper()
